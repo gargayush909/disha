@@ -21,27 +21,25 @@ export default function Home() {
         width: window.innerWidth,
         height: window.innerHeight
       });
-    }
 
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({
-        x: e.clientX,
-        y: e.clientY
-      });
-    };
+      const handleMouseMove = (e: MouseEvent) => {
+        setMousePosition({
+          x: e.clientX,
+          y: e.clientY
+        });
+      };
 
-    const handleScroll = () => {
-      setScrollY(window.scrollY);
-    };
+      const handleScroll = () => {
+        setScrollY(window.scrollY);
+      };
 
-    const handleResize = () => {
-      setWindowSize({
-        width: window.innerWidth,
-        height: window.innerHeight
-      });
-    };
+      const handleResize = () => {
+        setWindowSize({
+          width: window.innerWidth,
+          height: window.innerHeight
+        });
+      };
 
-    if (typeof window !== 'undefined') {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('scroll', handleScroll);
       window.addEventListener('resize', handleResize);
