@@ -1,10 +1,13 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
-import KeyboardShortcuts from './components/KeyboardShortcuts'
-import PageTransition from './components/PageTransition'
+import dynamic from 'next/dynamic'
 
 const inter = Inter({ subsets: ['latin'] })
+
+// Dynamically import client components with no SSR
+const KeyboardShortcuts = dynamic(() => import('./components/KeyboardShortcuts'), { ssr: false })
+const PageTransition = dynamic(() => import('./components/PageTransition'), { ssr: false })
 
 export const metadata: Metadata = {
   title: 'Disha - JEE & NEET Mentorship',
