@@ -13,14 +13,17 @@ export default function Home() {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [scrollY, setScrollY] = useState(0);
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    // Set initial window size
+    setIsMounted(true);
     if (typeof window !== 'undefined') {
-      setWindowSize({
-        width: window.innerWidth,
-        height: window.innerHeight
-      });
+      const updateWindowSize = () => {
+        setWindowSize({
+          width: window.innerWidth,
+          height: window.innerHeight
+        });
+      };
 
       const handleMouseMove = (e: MouseEvent) => {
         setMousePosition({
@@ -33,21 +36,19 @@ export default function Home() {
         setScrollY(window.scrollY);
       };
 
-      const handleResize = () => {
-        setWindowSize({
-          width: window.innerWidth,
-          height: window.innerHeight
-        });
-      };
+      // Initial values
+      updateWindowSize();
+      handleScroll();
 
+      // Event listeners
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('scroll', handleScroll);
-      window.addEventListener('resize', handleResize);
+      window.addEventListener('resize', updateWindowSize);
 
       return () => {
         window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('scroll', handleScroll);
-        window.removeEventListener('resize', handleResize);
+        window.removeEventListener('resize', updateWindowSize);
       };
     }
   }, []);
@@ -217,8 +218,7 @@ export default function Home() {
       <section className="relative h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-pink-50 overflow-hidden">
         {/* Animated Background Elements */}
         <div className="absolute inset-0 overflow-hidden">
-          {/* Floating Shapes */}
-          {[...Array(30)].map((_, i) => (
+          {isMounted && [...Array(30)].map((_, i) => (
             <div
               key={i}
               className="absolute animate-float"
