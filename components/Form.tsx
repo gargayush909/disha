@@ -4,284 +4,335 @@ import { useState } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 
-type FormStep = 'details' | 'schedule' | 'payment' | 'confirmation';
+type ValuePiece = Date | null;
+type Value = ValuePiece | [ValuePiece, ValuePiece];
 
-type TimeSlot = {
-  id: string;
-  label: string;
-  range: string;
-};
+interface FormProps {
+  mentorId?: string;
+  mentorName?: string;
+}
 
-export default function Form() {
-  const [step, setStep] = useState<FormStep>('details');
-  const [formData, setFormData] = useState({
+interface FormData {
+  name: string;
+  email: string;
+  phone: string;
+  class: string;
+  targetExam: string;
+  guidanceTypes: string[];
+  date: Date | null;
+  time: string;
+  message: string;
+}
+
+export default function Form({ mentorId, mentorName }: FormProps) {
+  const [step, setStep] = useState(1);
+  const [date, setDate] = useState<Value>(new Date());
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     email: '',
     phone: '',
-    gender: '',
-    exam: '',
     class: '',
-    preferences: [] as string[],
-    date: new Date(),
-    timeSlot: '',
+    targetExam: '',
+    guidanceTypes: [],
+    date: null,
+    time: '',
+    message: '',
   });
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
 
-  const timeSlots: TimeSlot[] = [
-    {
-      id: 'morning',
-      label: 'Morning',
-      range: '8:00 AM - 12:00 PM'
-    },
-    {
-      id: 'afternoon',
-      label: 'Afternoon',
-      range: '12:00 PM - 5:00 PM'
-    },
-    {
-      id: 'evening',
-      label: 'Evening',
-      range: '5:00 PM - 10:00 PM'
-    }
+  const timeSlots = [
+    { id: 'morning', label: 'Morning (9:00 AM - 12:00 PM)' },
+    { id: 'afternoon', label: 'Afternoon (12:00 PM - 4:00 PM)' },
+    { id: 'evening', label: 'Evening (4:00 PM - 8:00 PM)' }
   ];
 
-  const handleCheckboxChange = (value: string) => {
-    setFormData(prev => {
-      const newPrefs = prev.preferences.includes(value)
-        ? prev.preferences.filter(v => v !== value)
-        : [...prev.preferences, value];
-      return { ...prev, preferences: newPrefs };
-    });
+  const guidanceOptions = [
+    'Study Planning',
+    'Doubt Solving',
+    'Test Series Discussion',
+    'Previous Year Papers',
+    'Strategy Building',
+    'Mental Preparation'
+  ];
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleDateChange = (value: Value) => {
+    setDate(value);
+    // If value is a Date, use it. If it's an array, use the first date. Otherwise, use null.
+    const selectedDate = value instanceof Date ? value : Array.isArray(value) ? value[0] : null;
+    setFormData({ ...formData, date: selectedDate });
+  };
+
+  const handleGuidanceChange = (type: string) => {
+    setFormData(prev => ({
+      ...prev,
+      guidanceTypes: prev.guidanceTypes.includes(type)
+        ? prev.guidanceTypes.filter(t => t !== type)
+        : [...prev.guidanceTypes, type]
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (step === 'details') {
-      setStep('schedule');
-    } else if (step === 'schedule') {
-      setStep('payment');
-    } else if (step === 'payment') {
-      setStep('confirmation');
-      sendConfirmation();
+    setLoading(true);
+    setError('');
+
+    try {
+      // Send confirmation email
+      const emailResponse = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          studentName: formData.name,
+          studentEmail: formData.email,
+          mentorName: mentorName || 'Selected Mentor',
+          date: formData.date?.toLocaleDateString(),
+          time: formData.time,
+          class: formData.class,
+          targetExam: formData.targetExam,
+          guidanceTypes: formData.guidanceTypes,
+        }),
+      });
+
+      if (!emailResponse.ok) {
+        throw new Error('Failed to send confirmation email');
+      }
+
+      setSuccess(true);
+      setStep(3);
+    } catch (err) {
+      setError('Something went wrong. Please try again.');
+      console.error('Error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const sendConfirmation = () => {
-    console.log('Sending confirmation...');
-  };
-
-  const renderDetailsForm = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-lg font-semibold text-gray-900 mb-2">Full Name</label>
-          <input
-            type="text"
-            placeholder="Enter your full name"
-            className="w-full px-4 py-3 text-lg text-gray-900 placeholder-gray-500 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-lg font-semibold text-gray-900 mb-2">Email Address</label>
-          <input
-            type="email"
-            placeholder="Enter your email"
-            className="w-full px-4 py-3 text-lg text-gray-900 placeholder-gray-500 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            required
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-lg font-semibold text-gray-900 mb-2">Mobile Number</label>
-          <input
-            type="tel"
-            placeholder="Enter WhatsApp number"
-            className="w-full px-4 py-3 text-lg text-gray-900 placeholder-gray-500 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
-            value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-lg font-semibold text-gray-900 mb-2">Gender</label>
-          <select
-            className="w-full px-4 py-3 text-lg text-gray-900 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
-            value={formData.gender}
-            onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-            required
-          >
-            <option value="">Select Gender</option>
-            <option value="male">Male</option>
-            <option value="female">Female</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-lg font-semibold text-gray-900 mb-2">Target Exam</label>
-          <select
-            className="w-full px-4 py-3 text-lg text-gray-900 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
-            value={formData.exam}
-            onChange={(e) => setFormData({ ...formData, exam: e.target.value })}
-            required
-          >
-            <option value="">Select Target Exam</option>
-            <option value="jee">JEE</option>
-            <option value="neet">NEET</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-lg font-semibold text-gray-900 mb-2">Current Class</label>
-          <select
-            className="w-full px-4 py-3 text-lg text-gray-900 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition"
-            value={formData.class}
-            onChange={(e) => setFormData({ ...formData, class: e.target.value })}
-            required
-          >
-            <option value="">Select Current Class</option>
-            <option value="10">10th</option>
-            <option value="11">11th</option>
-            <option value="12">12th</option>
-            <option value="dropper">Dropper</option>
-          </select>
-        </div>
-      </div>
-
+  const renderStep1 = () => (
+    <div className="space-y-4">
       <div>
-        <label className="block text-lg font-semibold text-gray-900 mb-4">Mentorship Preferences</label>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {['Time Management', 'Motivation & Confidence', 'Concept Clarity', 'Syllabus Coverage', 'Exam Strategy', 'Other'].map((label) => (
-            <label key={label} className="flex items-center space-x-3 p-4 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition cursor-pointer">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+        <input
+          type="text"
+          value={formData.name}
+          onChange={handleInputChange}
+          name="name"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+          required
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+        <input
+          type="email"
+          value={formData.email}
+          onChange={handleInputChange}
+          name="email"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+          required
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+        <input
+          type="tel"
+          value={formData.phone}
+          onChange={handleInputChange}
+          name="phone"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+          required
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+        <select
+          value={formData.class}
+          onChange={handleInputChange}
+          name="class"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+          required
+        >
+          <option value="">Select your class</option>
+          <option value="10th">10th</option>
+          <option value="11th">11th</option>
+          <option value="12th">12th</option>
+          <option value="dropper">Dropper</option>
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Target Exam</label>
+        <select
+          value={formData.targetExam}
+          onChange={handleInputChange}
+          name="targetExam"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+          required
+        >
+          <option value="">Select target exam</option>
+          <option value="JEE">JEE</option>
+          <option value="NEET">NEET</option>
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Type of Guidance Needed</label>
+        <div className="grid grid-cols-2 gap-3">
+          {guidanceOptions.map((type) => (
+            <label key={type} className="flex items-center space-x-2 text-sm">
               <input
                 type="checkbox"
-                checked={formData.preferences.includes(label)}
-                onChange={() => handleCheckboxChange(label)}
-                className="w-5 h-5 text-orange-500 border-gray-300 rounded focus:ring-orange-500"
+                checked={formData.guidanceTypes.includes(type)}
+                onChange={() => handleGuidanceChange(type)}
+                className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
               />
-              <span className="text-lg text-gray-900">{label}</span>
+              <span>{type}</span>
             </label>
           ))}
         </div>
       </div>
+      <button
+        onClick={() => setStep(2)}
+        className="w-full bg-gradient-to-r from-orange-500 to-pink-600 text-white py-3 rounded-lg hover:shadow-lg transition-all duration-300"
+      >
+        Next
+      </button>
     </div>
   );
 
-  const renderScheduling = () => (
-    <div className="space-y-8">
+  const renderStep2 = () => (
+    <div className="space-y-6">
       <div>
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">Select Date</h3>
-        <div className="bg-white rounded-lg p-4 border-2 border-gray-200">
-          <Calendar
-            onChange={(date) => setFormData({ ...formData, date: date as Date })}
-            value={formData.date}
-            minDate={new Date()}
-            className="w-full text-lg"
-          />
-        </div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Select Date</label>
+        <Calendar
+          onChange={handleDateChange}
+          value={date}
+          minDate={new Date()}
+          className="w-full max-w-md mx-auto bg-white rounded-lg shadow p-4"
+        />
       </div>
       <div>
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">Select Preferred Time Slot</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">Preferred Time Slot</label>
+        <div className="grid grid-cols-1 gap-3">
           {timeSlots.map((slot) => (
             <button
               key={slot.id}
               type="button"
-              onClick={() => setFormData({ ...formData, timeSlot: slot.id })}
-              className={`p-4 rounded-lg border-2 text-left space-y-1 ${
-                formData.timeSlot === slot.id
-                  ? 'bg-orange-50 border-orange-500 ring-2 ring-orange-500'
-                  : 'border-gray-300 hover:border-orange-500'
-              } transition-all duration-200`}
+              onClick={() => setFormData({ ...formData, time: slot.id })}
+              className={`p-3 rounded-lg text-sm font-medium ${
+                formData.time === slot.id
+                  ? 'bg-gradient-to-r from-orange-500 to-pink-600 text-white'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              }`}
             >
-              <div className="text-lg font-semibold text-gray-900">{slot.label}</div>
-              <div className="text-gray-600">{slot.range}</div>
+              {slot.label}
             </button>
           ))}
         </div>
+        <p className="mt-2 text-sm text-gray-500">
+          Note: The exact timing will be confirmed by the mentor within your preferred time slot.
+        </p>
       </div>
-    </div>
-  );
-
-  const renderPayment = () => (
-    <div className="space-y-6">
-      <div className="bg-gray-50 p-6 rounded-lg border-2 border-gray-200">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">Booking Summary</h3>
-        <div className="space-y-4">
-          <div className="flex justify-between text-lg">
-            <span className="text-gray-600">Mentorship Session</span>
-            <span className="text-gray-900 font-semibold">₹149</span>
-          </div>
-          <div className="flex justify-between text-lg">
-            <span className="text-gray-600">Date</span>
-            <span className="text-gray-900 font-semibold">{formData.date.toLocaleDateString()}</span>
-          </div>
-          <div className="flex justify-between text-lg">
-            <span className="text-gray-600">Time Slot</span>
-            <span className="text-gray-900 font-semibold">
-              {timeSlots.find(slot => slot.id === formData.timeSlot)?.range || ''}
-            </span>
-          </div>
-          <div className="pt-4 border-t-2">
-            <div className="flex justify-between text-lg font-semibold">
-              <span className="text-gray-900">Total Amount</span>
-              <span className="text-gray-900">₹149</span>
-            </div>
-          </div>
-        </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Additional Message (Optional)</label>
+        <textarea
+          value={formData.message}
+          onChange={handleInputChange}
+          name="message"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent h-32"
+        />
       </div>
-    </div>
-  );
-
-  const renderConfirmation = () => (
-    <div className="text-center space-y-6">
-      <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-        <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-        </svg>
-      </div>
-      <h3 className="text-2xl font-semibold text-gray-900">Booking Confirmed!</h3>
-      <p className="text-lg text-gray-600">
-        We've sent the confirmation details to your email and WhatsApp.
-        <br />
-        You'll receive a reminder 24 hours before your session.
-      </p>
-      <div className="pt-4">
+      <div className="flex gap-4">
         <button
           type="button"
-          className="text-lg text-orange-500 hover:text-orange-600 font-semibold"
-          onClick={() => window.location.href = 'mailto:support@disha.com'}
+          onClick={() => setStep(1)}
+          className="w-1/2 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 transition-all duration-300"
         >
-          Need support? Contact us
+          Back
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          className="w-1/2 bg-gradient-to-r from-orange-500 to-pink-600 text-white py-3 rounded-lg hover:shadow-lg transition-all duration-300 disabled:opacity-50"
+        >
+          {loading ? 'Booking...' : 'Book Session'}
         </button>
       </div>
+      {error && (
+        <p className="text-red-500 text-center">{error}</p>
+      )}
+    </div>
+  );
+
+  const renderStep3 = () => (
+    <div className="text-center space-y-6">
+      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+        <svg
+          className="w-8 h-8 text-green-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M5 13l4 4L19 7"
+          />
+        </svg>
+      </div>
+      <h3 className="text-2xl font-bold text-gray-900">Booking Confirmed!</h3>
+      <p className="text-gray-600">
+        Thank you for booking a session. We have sent a confirmation email to {formData.email}.
+        Please check your inbox for further details.
+      </p>
     </div>
   );
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-      {step === 'details' && renderDetailsForm()}
-      {step === 'schedule' && renderScheduling()}
-      {step === 'payment' && renderPayment()}
-      {step === 'confirmation' && renderConfirmation()}
-      
-      {step !== 'confirmation' && (
-        <button
-          type="submit"
-          className="w-full bg-gradient-to-r from-orange-500 to-pink-600 text-white py-4 px-6 rounded-lg text-lg font-semibold hover:from-orange-600 hover:to-pink-700 transition-all duration-300 transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-        >
-          {step === 'details' && 'Continue to Schedule'}
-          {step === 'schedule' && 'Proceed to Payment'}
-          {step === 'payment' && 'Pay ₹149'}
-        </button>
-      )}
-    </form>
+    <div className="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-lg">
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          {[1, 2, 3].map((stepNumber) => (
+            <div
+              key={stepNumber}
+              className={`flex items-center ${stepNumber < 3 ? 'flex-1' : ''}`}
+            >
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  step >= stepNumber
+                    ? 'bg-gradient-to-r from-orange-500 to-pink-600 text-white'
+                    : 'bg-gray-200 text-gray-600'
+                }`}
+              >
+                {stepNumber}
+              </div>
+              {stepNumber < 3 && (
+                <div
+                  className={`flex-1 h-1 mx-2 ${
+                    step > stepNumber ? 'bg-gradient-to-r from-orange-500 to-pink-600' : 'bg-gray-200'
+                  }`}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-between text-sm text-gray-600">
+          <span>Personal Details</span>
+          <span>Schedule</span>
+          <span>Confirmation</span>
+        </div>
+      </div>
+
+      {step === 1 && renderStep1()}
+      {step === 2 && renderStep2()}
+      {step === 3 && renderStep3()}
+    </div>
   );
 }
